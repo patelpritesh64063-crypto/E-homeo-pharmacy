@@ -6,6 +6,7 @@ import { ordersRouter } from './routes/orders';
 import { adminRouter } from './routes/admin';
 import { webhooksRouter } from './routes/webhooks';
 import { rateLimiter } from './middleware/rateLimiter';
+import { handleDailyStockCron } from './cron/dailyStock';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -21,4 +22,12 @@ app.route('/api/orders', ordersRouter);
 app.route('/api/admin', adminRouter);
 app.route('/api/webhooks', webhooksRouter);
 
-export default app;
+export default {
+  fetch: app.fetch,
+  
+  // Cloudflare Cron Trigger — runs daily at 17:30 UTC (11 PM IST)
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(handleDailyStockCron(env));
+  },
+};
+

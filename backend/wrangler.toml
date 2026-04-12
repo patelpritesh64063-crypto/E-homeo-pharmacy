@@ -3,6 +3,10 @@ main = "src/index.ts"
 compatibility_date = "2024-02-08"
 account_id = "9d831205f8fa98a455674b2b287d4884"
 
+# Workers AI Binding (free tier — @cf/meta/llama-3.1-8b-instruct)
+[ai]
+binding = "AI"
+
 # KV Bindings
 kv_namespaces = [
   { binding = "STORE_KV", id = "YOUR_KV_NAMESPACE_ID", preview_id = "YOUR_KV_PREVIEW_ID" }
@@ -14,6 +18,10 @@ binding = "DB"
 database_name = "e-pharm-d1"
 database_id = "YOUR_D1_DATABASE_ID"
 
+# Cron Triggers — Daily at 17:30 UTC (11:00 PM IST)
+[triggers]
+crons = ["30 17 * * *"]
+
 [vars]
 # To set securely use: wrangler secret put <NAME>
 # RAZORPAY_KEY = "..."
@@ -23,3 +31,4 @@ database_id = "YOUR_D1_DATABASE_ID"
 # ADMIN_EMAIL = "..."
 # ADMIN_PASSWORD = "..." # Alternatively hashed
 # ADMIN_API_KEY = "..."
+

@@ -1,6 +1,7 @@
 export type Env = {
   DB: D1Database;
   STORE_KV: KVNamespace;
+  AI: Ai;
   RAZORPAY_KEY: string;
   RAZORPAY_SECRET: string;
   RESEND_API_KEY: string;
