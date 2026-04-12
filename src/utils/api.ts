@@ -11,6 +11,7 @@ export interface Product {
 export type OrderStatus = 'Verified' | 'Accepted' | 'Paid' | 'Shipped' | 'Delivered';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+console.log('API Base URL:', BASE_URL || '(relative)');
 
 export const api = {
   fetchCatalog: async (): Promise<Product[]> => {
