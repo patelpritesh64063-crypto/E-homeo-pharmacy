@@ -9,14 +9,14 @@ binding = "AI"
 
 # KV Bindings
 kv_namespaces = [
-  { binding = "STORE_KV", id = "YOUR_KV_NAMESPACE_ID", preview_id = "YOUR_KV_PREVIEW_ID" }
+  { binding = "STORE_KV", id = "local-store-kv" }
 ]
 
 # D1 Bindings
 [[d1_databases]]
 binding = "DB"
 database_name = "e-pharm-d1"
-database_id = "YOUR_D1_DATABASE_ID"
+database_id = "local-e-pharm-d1"
 
 # Cron Triggers — Daily at 17:30 UTC (11:00 PM IST)
 [triggers]
