@@ -1,9 +1,8 @@
-import { Hono } from 'hono';
-import { Env } from '../env';
+import { Env, Variables } from '../env';
 import { verifyRazorpaySignature } from '../services/razorpay';
 import { sendEmail, templates } from '../services/email';
 
-export const webhooksRouter = new Hono<{ Bindings: Env }>();
+export const webhooksRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 /**
  * Razorpay Webhook Handler

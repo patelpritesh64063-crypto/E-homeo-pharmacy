@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import { Env } from '../env';
+import { Env, Variables } from '../env';
 import { adminAuth } from '../middleware/auth';
 
-export const catalogRouter = new Hono<{ Bindings: Env }>();
+export const catalogRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // ─── Public Routes ───────────────────────────────────────────────
 

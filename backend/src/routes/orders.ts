@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
-import { Env } from '../env';
+import { Env, Variables } from '../env';
 import { sendEmail, templates } from '../services/email';
 import { runFraudCheck, FraudCheckInput } from '../services/ai';
 
-export const ordersRouter = new Hono<{ Bindings: Env }>();
+export const ordersRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 /**
  * 1. PLACE ORDER

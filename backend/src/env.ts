@@ -10,3 +10,7 @@ export type Env = {
   ADMIN_PASSWORD: string;
   ADMIN_API_KEY: string;
 };
+
+export type Variables = {
+  admin: any;
+};

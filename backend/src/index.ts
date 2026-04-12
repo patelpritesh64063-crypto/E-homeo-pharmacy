@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { Env } from './env';
+import { Env, Variables } from './env';
 import { catalogRouter } from './routes/catalog';
 import { ordersRouter } from './routes/orders';
 import { adminRouter } from './routes/admin';
@@ -8,7 +8,7 @@ import { webhooksRouter } from './routes/webhooks';
 import { rateLimiter } from './middleware/rateLimiter';
 import { handleDailyStockCron } from './cron/dailyStock';
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // ─── Middleware ──────────────────────────────────────────────────
 

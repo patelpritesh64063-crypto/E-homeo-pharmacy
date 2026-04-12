@@ -1,11 +1,11 @@
 import { Context, Next } from 'hono';
-import { Env } from '../env';
+import { Env, Variables } from '../env';
 
 /**
  * Middleware to protect admin routes.
  * Supports both Session Token (KV) and Master API Key.
  */
-export const adminAuth = async (c: Context<{ Bindings: Env }>, next: Next) => {
+export const adminAuth = async (c: Context<{ Bindings: Env; Variables: Variables }>, next: Next) => {
   const authHeader = c.req.header('Authorization');
   if (!authHeader) {
     return c.json({ error: 'Authentication required' }, 401);
@@ -27,7 +27,7 @@ export const adminAuth = async (c: Context<{ Bindings: Env }>, next: Next) => {
   // Parse and attach admin info to context if needed
   try {
     const admin = JSON.parse(sessionData);
-    c.set('admin' as any, admin);
+    c.set('admin', admin);
   } catch (e) {
     // Fallback if JSON is malformed
   }

@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
-import { Env } from '../env';
+import { Env, Variables } from '../env';
 import { adminAuth } from '../middleware/auth';
 import { sendEmail, templates } from '../services/email';
 import { createPaymentLink } from '../services/razorpay';
 
-export const adminRouter = new Hono<{ Bindings: Env }>();
+export const adminRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // ─── ADMIN LOGIN FLOW (3-STEP) ──────────────────────────────────
 
