@@ -1,6 +1,16 @@
 import { Env } from '../env';
 
-export const createPaymentLink = async (env: Env, orderRef: string, amountPaise: number, customer: { name: string, email: string, phone: string }) => {
+/**
+ * Creates a Razorpay Payment Link for an order.
+ * Uses Basic Auth: key_id:key_secret
+ */
+export const createPaymentLink = async (
+  env: Env, 
+  orderRef: string, 
+  amountPaise: number, 
+  customer: { name: string, email: string, phone: string },
+  description: string
+) => {
   const auth = btoa(`${env.RAZORPAY_KEY}:${env.RAZORPAY_SECRET}`);
   
   const payload = {
@@ -9,7 +19,7 @@ export const createPaymentLink = async (env: Env, orderRef: string, amountPaise:
     accept_partial: false,
     expire_by: Math.floor(Date.now() / 1000) + 3600, // 1 hour expiry
     reference_id: orderRef,
-    description: `Payment for Order ${orderRef}`,
+    description: description,
     customer: {
       name: customer.name,
       contact: customer.phone,
@@ -20,7 +30,8 @@ export const createPaymentLink = async (env: Env, orderRef: string, amountPaise:
       email: true
     },
     reminder_enable: true,
-    callback_url: "https://yourfrontend.com/track/" + orderRef,
+    // Callback is where user is redirected after payment
+    callback_url: "https://e-pharm-homeo.vercel.app/order-status/" + orderRef,
     callback_method: "get"
   };
 
@@ -35,14 +46,27 @@ export const createPaymentLink = async (env: Env, orderRef: string, amountPaise:
 
   if (!res.ok) {
     const errorBody = await res.text();
-    throw new Error('Failed to create Razorpay link: ' + errorBody);
+    console.error('[Razorpay] Link Creation Failed:', errorBody);
+    throw new Error('Could not create payment link');
   }
 
   const data = await res.json() as any;
-  return data.short_url;
+  return {
+    id: data.id,
+    short_url: data.short_url,
+    status: data.status
+  };
 };
 
-export const verifyRazorpaySignature = async (bodyContent: string, signature: string, secret: string) => {
+/**
+ * Verifies Razorpay Webhook Signature using HMAC SHA256.
+ * Webhook secret should be set in Razorpay Dashboard and passed here.
+ */
+export const verifyRazorpaySignature = async (
+  bodyContent: string, 
+  signature: string, 
+  secret: string
+): Promise<boolean> => {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw',
@@ -58,6 +82,7 @@ export const verifyRazorpaySignature = async (bodyContent: string, signature: st
     encoder.encode(bodyContent)
   );
   
+  // Convert signature bytes to hex string
   const hashArray = Array.from(new Uint8Array(signatureBytes));
   const expectedSignature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   

@@ -10,24 +10,38 @@ import { handleDailyStockCron } from './cron/dailyStock';
 
 const app = new Hono<{ Bindings: Env }>();
 
+// ─── Middleware ──────────────────────────────────────────────────
+
 app.use('*', cors());
+
+// Rate limit all non-webhook and non-admin routes
+// (Admin routes have built-in skip logic in rateLimiter)
 app.use('/api/public/*', rateLimiter);
 app.use('/api/orders/*', rateLimiter);
 
-app.get('/', (c) => c.text('E-Pharm API is running'));
+// ─── Base Routes ─────────────────────────────────────────────────
 
-// Register sub-routers
+app.get('/', (c) => c.text('E-Pharm API - Indian Homeopathy Store v1.0'));
+app.get('/health', (c) => c.json({ status: 'healthy', time: new Date().toISOString() }));
+
+// ─── Module Routers ──────────────────────────────────────────────
+
 app.route('/api/public/catalog', catalogRouter);
 app.route('/api/orders', ordersRouter);
 app.route('/api/admin', adminRouter);
 app.route('/api/webhooks', webhooksRouter);
 
+// ─── Worker Export ───────────────────────────────────────────────
+
 export default {
   fetch: app.fetch,
   
-  // Cloudflare Cron Trigger — runs daily at 17:30 UTC (11 PM IST)
+  /**
+   * Cloudflare Cron Trigger
+   * Runs daily to analyze stock, sales and generate AI insights.
+   */
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    console.log('[Cron] Starting daily stock analysis...');
     ctx.waitUntil(handleDailyStockCron(env));
   },
 };
-

@@ -1,150 +1,190 @@
 import { Hono } from 'hono';
 import { Env } from '../env';
 import { adminAuth } from '../middleware/auth';
-import { createPaymentLink } from '../services/razorpay';
 import { sendEmail, templates } from '../services/email';
-import { handleDailyStockCron } from '../cron/dailyStock';
+import { createPaymentLink } from '../services/razorpay';
 
 export const adminRouter = new Hono<{ Bindings: Env }>();
 
-// Open route for login
+// ─── ADMIN LOGIN FLOW (3-STEP) ──────────────────────────────────
+
+// Step 1: Credentials Check
 adminRouter.post('/login', async (c) => {
   const { email, password } = await c.req.json();
-  if (email === c.env.ADMIN_EMAIL && password === c.env.ADMIN_PASSWORD) {
-    const token = crypto.randomUUID();
-    await c.env.STORE_KV.put(`SESSION:${token}`, JSON.stringify({ email }), { expirationTtl: 86400 });
-    return c.json({ token });
+  
+  if (email !== c.env.ADMIN_EMAIL || password !== c.env.ADMIN_PASSWORD) {
+    return c.json({ error: 'Invalid credentials' }, 401);
   }
-  return c.json({ error: 'Invalid credentials' }, 401);
+
+  // Generate OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  await c.env.STORE_KV.put(`ADMIN_OTP:${email}`, otp, { expirationTtl: 600 });
+  
+  // Email OTP to admin
+  await sendEmail(c.env, {
+    to: c.env.ADMIN_EMAIL,
+    subject: 'Admin Login OTP',
+    html: templates.otp(otp, '', true)
+  });
+
+  return c.json({ success: true, message: 'OTP sent to your email' });
 });
 
-// Protect all routes below
+// Step 2: OTP Verification -> Session
+adminRouter.post('/login-verify', async (c) => {
+  const { email, otp } = await c.req.json();
+  
+  const storedOtp = await c.env.STORE_KV.get(`ADMIN_OTP:${email}`);
+  if (!storedOtp || storedOtp !== otp) {
+    return c.json({ error: 'Invalid or expired OTP' }, 401);
+  }
+
+  // Success -> Create Session
+  const token = crypto.randomUUID();
+  await c.env.STORE_KV.put(`SESSION:${token}`, JSON.stringify({ email, created_at: new Date().toISOString() }), { expirationTtl: 86400 });
+  await c.env.STORE_KV.delete(`ADMIN_OTP:${email}`);
+
+  return c.json({ token, success: true });
+});
+
+// ─── PROTECTED ADMIN ROUTES ──────────────────────────────────────
+
 adminRouter.use('/*', adminAuth);
 
-// Accept Order & Create Payment Link
+// List all orders
+adminRouter.get('/orders', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    'SELECT * FROM orders ORDER BY created_at DESC'
+  ).all();
+  return c.json(results);
+});
+
+// Get order details with items
+adminRouter.get('/orders/:ref', async (c) => {
+  const ref = c.req.param('ref');
+  const order = await c.env.DB.prepare('SELECT * FROM orders WHERE order_ref = ?').bind(ref).first() as any;
+  if (!order) return c.json({ error: 'Not found' }, 404);
+
+  const { results: items } = await c.env.DB.prepare(`
+    SELECT oi.*, p.name, p.sku, p.emoji
+    FROM order_items oi
+    JOIN products p ON oi.product_id = p.id
+    WHERE oi.order_ref = ?
+  `).bind(ref).all();
+
+  return c.json({ ...order, items });
+});
+
+// Accept Order -> Decrement Stock -> Create Payment Link -> Notify
 adminRouter.post('/orders/:ref/accept', async (c) => {
   const ref = c.req.param('ref');
   
   const order = await c.env.DB.prepare('SELECT * FROM orders WHERE order_ref = ?').bind(ref).first() as any;
-  if (!order || order.status !== 'verified') return c.json({ error: 'Order not verified or not found' }, 400);
+  if (!order || order.status !== 'verified') return c.json({ error: 'Order must be verified by customer first' }, 400);
 
-  // Check AI decision — warn admin if flagged
-  let aiWarning = null;
-  if (order.ai_decision_fields) {
-    const aiDecision = JSON.parse(order.ai_decision_fields);
-    if (aiDecision.decision === 'flagged') {
-      aiWarning = {
-        message: 'AI ने इस order को flagged किया है',
-        reasoning: aiDecision.reasoning,
-        flags: aiDecision.flags,
-      };
-    }
+  const { results: items } = await c.env.DB.prepare(`
+    SELECT oi.product_id, oi.quantity, p.price, p.name
+    FROM order_items oi
+    JOIN products p ON oi.product_id = p.id
+    WHERE oi.order_ref = ?
+  `).bind(ref).all() as any;
+
+  // 1. Calculate Total and Check Stock again
+  let totalPaise = 0;
+  for (const item of items) {
+    totalPaise += item.quantity * item.price * 100;
   }
 
-  // In real app, calculate actual amount from order_items
-  const amountPaise = 50000; // 500 INR mockup
-  
+  // 2. Decrement Stock
+  for (const item of items) {
+    await c.env.DB.prepare(
+      'UPDATE products SET stock_qty = stock_qty - ? WHERE id = ?'
+    ).bind(item.quantity, item.product_id).run();
+  }
+
+  // 3. Create Razorpay Link
   const customer = JSON.parse(order.customer_info);
-  const link = await createPaymentLink(c.env, ref, amountPaise, customer);
-  
+  const payLink = await createPaymentLink(c.env, ref, totalPaise, customer, `Payment for E-Pharm Order ${ref}`);
+
+  // 4. Update Order
   await c.env.DB.prepare(
     "UPDATE orders SET status = 'accepted', payment_fields = ? WHERE order_ref = ?"
-  ).bind(JSON.stringify({ payment_link: link }), ref).run();
-  
+  ).bind(JSON.stringify({ 
+    payment_link_id: payLink.id, 
+    short_url: payLink.short_url,
+    amount_paise: totalPaise
+  }), ref).run();
+
+  // 5. Send Email
   await sendEmail(c.env, {
     to: customer.email,
-    subject: 'Your E-Pharm Order is Accepted',
-    html: templates.paymentLink(link, amountPaise, order.delivery_type)
+    subject: `Your E-Pharm Order ${ref} is Accepted`,
+    html: templates.paymentLink(payLink.short_url, totalPaise, order.delivery_type, order.notes)
   });
-  
-  return c.json({ success: true, link, aiWarning });
+
+  return c.json({ success: true, link: payLink.short_url });
 });
 
-// Ship Or Marks Ready Order
+// Reject Order
+adminRouter.post('/orders/:ref/reject', async (c) => {
+  const ref = c.req.param('ref');
+  const { reason } = await c.req.json();
+
+  const order = await c.env.DB.prepare('SELECT * FROM orders WHERE order_ref = ?').bind(ref).first() as any;
+  if (!order) return c.json({ error: 'Order not found' }, 404);
+
+  await c.env.DB.prepare(
+    "UPDATE orders SET status = 'cancelled', rejected_reason = ? WHERE order_ref = ?"
+  ).bind(reason, ref).run();
+
+  const customer = JSON.parse(order.customer_info);
+  await sendEmail(c.env, {
+    to: customer.email,
+    subject: `Update regarding your E-Pharm Order ${ref}`,
+    html: templates.rejection(reason)
+  });
+
+  return c.json({ success: true });
+});
+
+// Ship Or Mark Ready
 adminRouter.post('/orders/:ref/ship', async (c) => {
   const ref = c.req.param('ref');
   const { tracking_url } = await c.req.json();
-  
+
   const order = await c.env.DB.prepare('SELECT * FROM orders WHERE order_ref = ?').bind(ref).first() as any;
-  if (!order || order.status !== 'paid') return c.json({ error: 'Order not paid or not found' }, 400);
+  if (!order || order.status !== 'paid') return c.json({ error: 'Order not paid' }, 400);
 
   await c.env.DB.prepare(
     "UPDATE orders SET status = 'shipped', shipping_fields = ? WHERE order_ref = ?"
   ).bind(JSON.stringify({ tracking_url }), ref).run();
-  
+
   const customer = JSON.parse(order.customer_info);
   await sendEmail(c.env, {
     to: customer.email,
-    subject: 'Your E-Pharm Order update',
-    html: templates.shipping({ tracking_url }, order.delivery_type)
+    subject: `Your E-Pharm Order ${ref} is ${order.delivery_type === 'delivery' ? 'Shipped' : 'Ready'}`,
+    html: templates.shipping(order.delivery_type, tracking_url, order.notes)
   });
-  
+
   return c.json({ success: true });
 });
 
-// ─── AI ENDPOINTS ────────────────────────────────────────────────
-
-// View AI fraud decision for a specific order
-adminRouter.get('/orders/:ref/ai-decision', async (c) => {
+// Deliver Order
+adminRouter.post('/orders/:ref/delivered', async (c) => {
   const ref = c.req.param('ref');
-  const order = await c.env.DB.prepare(
-    'SELECT ai_decision_fields FROM orders WHERE order_ref = ?'
-  ).bind(ref).first() as any;
-  
+  const order = await c.env.DB.prepare('SELECT * FROM orders WHERE order_ref = ?').bind(ref).first() as any;
   if (!order) return c.json({ error: 'Order not found' }, 404);
-  
-  const decision = order.ai_decision_fields 
-    ? JSON.parse(order.ai_decision_fields) 
-    : { decision: 'pending', reasoning: 'AI check अभी तक नहीं हुआ' };
-  
-  return c.json(decision);
-});
 
-// Manually trigger stock analysis (Admin "Run AI" button)
-adminRouter.post('/ai/run-stock-analysis', async (c) => {
-  const result = await handleDailyStockCron(c.env);
-  return c.json(result);
-});
+  await c.env.DB.prepare(
+    "UPDATE orders SET status = 'delivered' WHERE order_ref = ?"
+  ).bind(ref).run();
 
-// Get last cron run info
-adminRouter.get('/ai/last-run', async (c) => {
-  const lastRun = await c.env.STORE_KV.get('CRON:last_stock_analysis');
-  const lastError = await c.env.STORE_KV.get('CRON:last_stock_analysis_error');
-  
-  return c.json({
-    lastRun: lastRun ? JSON.parse(lastRun) : null,
-    lastError: lastError ? JSON.parse(lastError) : null,
+  const customer = JSON.parse(order.customer_info);
+  await sendEmail(c.env, {
+    to: customer.email,
+    subject: `Order ${ref} Delivered`,
+    html: templates.delivered(ref)
   });
-});
 
-// Get daily summary
-adminRouter.get('/ai/summary/:date', async (c) => {
-  const date = c.req.param('date');
-  const summary = await c.env.DB.prepare(
-    'SELECT * FROM daily_summaries WHERE date = ?'
-  ).bind(date).first() as any;
-  
-  if (!summary) return c.json({ error: 'No summary for this date' }, 404);
-  
-  return c.json({
-    date: summary.date,
-    stats: JSON.parse(summary.stats),
-    insights: summary.ai_insights ? JSON.parse(summary.ai_insights) : null,
-    lowStock: summary.low_stock_data ? JSON.parse(summary.low_stock_data) : [],
-  });
+  return c.json({ success: true });
 });
-
-// List draft purchase orders
-adminRouter.get('/ai/purchase-orders', async (c) => {
-  const { results } = await c.env.DB.prepare(
-    "SELECT * FROM purchase_orders WHERE status = 'draft' ORDER BY created_at DESC"
-  ).all() as any;
-  
-  return c.json((results || []).map((po: any) => ({
-    po_number: po.po_number,
-    status: po.status,
-    details: JSON.parse(po.items),
-    created_at: po.created_at,
-  })));
-});
-

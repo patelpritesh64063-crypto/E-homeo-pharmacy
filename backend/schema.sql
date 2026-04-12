@@ -28,6 +28,8 @@ CREATE TABLE orders (
   payment_fields TEXT, -- JSON { razorpay_order_id, razorpay_payment_id, amount }
   ai_decision_fields TEXT, -- JSON
   shipping_fields TEXT, -- JSON { address, city, zip, tracking_url }
+  notes TEXT,
+  rejected_reason TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
