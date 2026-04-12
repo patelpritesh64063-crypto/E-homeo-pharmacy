@@ -1,0 +1,25 @@
+name = "e-pharm-backend"
+main = "src/index.ts"
+compatibility_date = "2024-02-08"
+account_id = "9d831205f8fa98a455674b2b287d4884"
+
+# KV Bindings
+kv_namespaces = [
+  { binding = "STORE_KV", id = "YOUR_KV_NAMESPACE_ID", preview_id = "YOUR_KV_PREVIEW_ID" }
+]
+
+# D1 Bindings
+[[d1_databases]]
+binding = "DB"
+database_name = "e-pharm-d1"
+database_id = "YOUR_D1_DATABASE_ID"
+
+[vars]
+# To set securely use: wrangler secret put <NAME>
+# RAZORPAY_KEY = "..."
+# RAZORPAY_SECRET = "..."
+# RESEND_API_KEY = "..."
+# ANTHROPIC_API_KEY = "..."
+# ADMIN_EMAIL = "..."
+# ADMIN_PASSWORD = "..." # Alternatively hashed
+# ADMIN_API_KEY = "..."

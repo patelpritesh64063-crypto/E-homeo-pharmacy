@@ -1,0 +1,34 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "e-phram-store",
+	"main": "backend/src/index.ts",
+	"compatibility_date": "2026-04-12",
+	"observability": {
+		"enabled": true
+	},
+	"assets": {
+		"not_found_handling": "single-page-application"
+	},
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "e-pharm-d1",
+			"database_id": "local-e-pharm-d1"
+		},
+		{
+			"binding": "my_database",
+			"database_name": "my-database",
+			"database_id": "7953d7e7-4180-4ee6-8059-c757ffb82cbb",
+			"remote": true
+		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "STORE_KV",
+			"id": "local-store-kv"
+		}
+	]
+}
