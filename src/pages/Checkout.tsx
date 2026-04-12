@@ -28,10 +28,26 @@ export default function Checkout() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { orderId, success } = await api.placeOrder({ ...formData, cart, deliveryMethod, finalTotal });
+
+    const payload = {
+      items: cart.map(item => ({
+        product_id: item.id,
+        quantity: item.quantity,
+        price: item.price
+      })),
+      customer_info: {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone
+      },
+      delivery_type: deliveryMethod,
+      notes: formData.notes
+    };
+
+    const { orderRef, success } = await api.placeOrder(payload);
     setLoading(false);
     if (success) {
-      navigate('/otp', { state: { orderId } });
+      navigate('/otp', { state: { orderId: orderRef } });
     }
   };
 

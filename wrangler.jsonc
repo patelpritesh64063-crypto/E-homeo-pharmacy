@@ -23,6 +23,12 @@
 			"binding": "my_database",
 			"database_name": "my-database",
 			"database_id": "7953d7e7-4180-4ee6-8059-c757ffb82cbb"
+		},
+		{
+			"binding": "e_phramcy",
+			"database_name": "epharm-db",
+			"database_id": "7b957beb-2ee1-4080-a205-8b44020966aa",
+			"remote": true
 		}
 	],
 	"kv_namespaces": [

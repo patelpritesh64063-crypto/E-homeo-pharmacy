@@ -168,6 +168,20 @@ ordersRouter.post('/resend-otp', async (c) => {
   return c.json({ success: true });
 });
 
+/**
+ * 4. TRACK ORDER
+ * Returns current status of an order by reference.
+ */
+ordersRouter.get('/:ref/status', async (c) => {
+  const ref = c.req.param('ref');
+  const order = await c.env.DB.prepare(
+    'SELECT status FROM orders WHERE order_ref = ?'
+  ).bind(ref).first() as { status: string } | null;
+
+  if (!order) return c.json({ error: 'Order not found' }, 404);
+  return c.json({ status: order.status });
+});
+
 async function performFraudCheck(env: Env, orderRef: string) {
   try {
     const order = await env.DB.prepare('SELECT * FROM orders WHERE order_ref = ?').bind(orderRef).first() as any;

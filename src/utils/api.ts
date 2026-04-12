@@ -26,8 +26,8 @@ export const api = {
     return response.json();
   },
   
-  placeOrder: async (data: any): Promise<{ orderId: string, success: boolean }> => {
-    const response = await fetch(`${BASE_URL}/api/orders`, {
+  placeOrder: async (data: any): Promise<{ orderRef: string, success: boolean }> => {
+    const response = await fetch(`${BASE_URL}/api/orders/place`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -36,19 +36,21 @@ export const api = {
     return response.json();
   },
   
-  verifyOTP: async (otp: string, orderId: string): Promise<{ success: boolean }> => {
-    const response = await fetch(`${BASE_URL}/api/orders/${orderId}/verify`, {
+  verifyOTP: async (otp: string, orderRef: string): Promise<{ success: boolean }> => {
+    const response = await fetch(`${BASE_URL}/api/orders/verify-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ otp })
+      body: JSON.stringify({ orderRef, otp })
     });
     if (!response.ok) throw new Error('Failed to verify OTP');
     return response.json();
   },
   
-  resendOTP: async (orderId: string): Promise<{ success: boolean }> => {
-    const response = await fetch(`${BASE_URL}/api/orders/${orderId}/resend-otp`, {
-      method: 'POST'
+  resendOTP: async (orderRef: string): Promise<{ success: boolean }> => {
+    const response = await fetch(`${BASE_URL}/api/orders/resend-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderRef })
     });
     if (!response.ok) throw new Error('Failed to resend OTP');
     return response.json();
