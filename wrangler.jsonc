@@ -17,7 +17,7 @@
 		{
 			"binding": "DB",
 			"database_name": "e-pharm-d1",
-			"database_id": "local-e-pharm-d1"
+			"database_id": "d621546c-de06-4bca-9eb8-3b26ebdec9f3"
 		},
 		{
 			"binding": "my_database",
@@ -29,12 +29,23 @@
 			"database_name": "epharm-db",
 			"database_id": "7b957beb-2ee1-4080-a205-8b44020966aa",
 			"remote": true
+		},
+		{
+			"binding": "Y",
+			"database_name": "e_pharm_d1",
+			"database_id": "d621546c-de06-4bca-9eb8-3b26ebdec9f3",
+			"remote": true
 		}
 	],
 	"kv_namespaces": [
 		{
+			"binding": "EPHRAM_KV",
+			"id": "e08d75a05eca4a1e8e29b17f7e8e38d2",
+			"remote": true
+		},
+		{
 			"binding": "STORE_KV",
-			"id": "local-store-kv"
+			"id": "e08d75a05eca4a1e8e29b17f7e8e38d2"
 		}
 	]
 }

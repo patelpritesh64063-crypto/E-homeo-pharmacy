@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useTranslation } from '../i18n/translations';
-import { Activity, Globe } from 'lucide-react';
+import { Activity, Globe, User } from 'lucide-react';
 
 export default function Header() {
   const { lang, setLang } = useStore();
@@ -33,10 +33,15 @@ export default function Header() {
           </div>
         </Link>
         
-        <button onClick={toggleLang} className="btn-icon flex items-center gap-2" style={{ background: 'transparent', border: '1px solid var(--glass-border)', cursor: 'pointer' }}>
-          <Globe size={18} />
-          <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>{lang.toUpperCase()}</span>
-        </button>
+        <div className="flex items-center gap-4">
+          <Link to="/login" className="btn-icon flex items-center justify-center" style={{ background: 'transparent', border: '1px solid var(--glass-border)', cursor: 'pointer', width: '38px', height: '38px', color: 'var(--text-main)', textDecoration: 'none' }}>
+            <User size={18} />
+          </Link>
+          <button onClick={toggleLang} className="btn-icon flex items-center gap-2" style={{ background: 'transparent', border: '1px solid var(--glass-border)', cursor: 'pointer', height: '38px' }}>
+            <Globe size={18} />
+            <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>{lang.toUpperCase()}</span>
+          </button>
+        </div>
       </div>
     </header>
   );

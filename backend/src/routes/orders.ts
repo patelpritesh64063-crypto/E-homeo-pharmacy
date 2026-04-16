@@ -175,11 +175,20 @@ ordersRouter.post('/resend-otp', async (c) => {
 ordersRouter.get('/:ref/status', async (c) => {
   const ref = c.req.param('ref');
   const order = await c.env.DB.prepare(
-    'SELECT status FROM orders WHERE order_ref = ?'
-  ).bind(ref).first() as { status: string } | null;
+    'SELECT status, payment_fields FROM orders WHERE order_ref = ?'
+  ).bind(ref).first() as { status: string, payment_fields?: string } | null;
 
   if (!order) return c.json({ error: 'Order not found' }, 404);
-  return c.json({ status: order.status });
+  
+  let paymentUrl = undefined;
+  if (order.payment_fields) {
+    try {
+      const parsed = JSON.parse(order.payment_fields);
+      paymentUrl = parsed.short_url;
+    } catch(e) {}
+  }
+  
+  return c.json({ status: order.status, payment_url: paymentUrl });
 });
 
 async function performFraudCheck(env: Env, orderRef: string) {

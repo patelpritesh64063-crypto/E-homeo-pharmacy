@@ -9,26 +9,34 @@ import { IndianRupee } from 'lucide-react';
 
 export default function OrderTracking() {
   const { orderId } = useParams();
-  const { lang, deliveryMethod } = useStore();
+  const { lang } = useStore();
   const t = useTranslation(lang);
   
   const [status, setStatus] = useState<OrderStatus>('Verified');
   const [loading, setLoading] = useState(true);
-  const [showConfetti, setShowConfetti] = useState(false);
+  const [showConfetti] = useState(false);
+
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (orderId) {
       api.trackOrder(orderId).then(res => {
         setStatus(res.status);
+        if (res.payment_url) {
+          setPaymentUrl(res.payment_url);
+        }
         setLoading(false);
       });
     }
   }, [orderId]);
 
   const handlePayment = () => {
-    // Mock payment success
-    setStatus(deliveryMethod === 'delivery' ? 'Shipped' : 'Delivered');
-    setShowConfetti(true);
+    if (paymentUrl) {
+      window.location.href = paymentUrl; // Redirect to Razorpay payment link
+    } else {
+      // Fallback
+      alert('Payment link not generated yet. Please contact admin.');
+    }
   };
 
   if (loading) return <div className="container" style={{ textAlign: 'center', marginTop: '40px' }}><p>Loading...</p></div>;

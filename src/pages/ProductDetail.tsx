@@ -12,7 +12,7 @@ export default function ProductDetail() {
   const navigate = useNavigate();
   const { lang, cart, addToCart, updateQuantity } = useStore();
   const t = useTranslation(lang);
-  
+
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,14 +44,14 @@ export default function ProductDetail() {
         <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '16px', height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '5rem', marginBottom: '24px' }}>
           {product.emoji}
         </div>
-        
+
         <span className="text-muted" style={{ textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.875rem' }}>{product.category}</span>
         <h1 style={{ margin: '8px 0 16px', fontSize: '2rem' }}>{product.name}</h1>
         <p className="text-muted" style={{ fontSize: '1.1rem', marginBottom: '24px' }}>{product.description}</p>
-        
+
         <div className="flex items-center justify-between mt-4" style={{ paddingTop: '24px', borderTop: '1px solid var(--glass-border)' }}>
           <span style={{ fontSize: '1.75rem', fontWeight: 'bold' }}>₹{product.price}</span>
-          
+
           {quantity === 0 ? (
             <button className="btn btn-primary" onClick={() => addToCart(product)}>
               {t('addToCart')}

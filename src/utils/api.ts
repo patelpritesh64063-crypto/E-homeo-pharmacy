@@ -56,7 +56,7 @@ export const api = {
     return response.json();
   },
   
-  trackOrder: async (ref: string): Promise<{ status: OrderStatus }> => {
+  trackOrder: async (ref: string): Promise<{ status: OrderStatus, payment_url?: string }> => {
     const response = await fetch(`${BASE_URL}/api/orders/${ref}/status`);
     if (!response.ok) throw new Error('Failed to track order');
     return response.json();
