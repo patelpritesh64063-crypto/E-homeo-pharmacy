@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Home from './pages/Home';
 import Catalog from './pages/Catalog';
 import ProductDetail from './pages/ProductDetail';
 import Checkout from './pages/Checkout';
@@ -15,7 +16,7 @@ function App() {
       <Header />
       <main className="main-content">
         <Routes>
-          <Route path="/" element={<Navigate to="/catalog" replace />} />
+          <Route path="/" element={<Home />} />
           <Route path="/catalog" element={<Catalog />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/checkout" element={<Checkout />} />

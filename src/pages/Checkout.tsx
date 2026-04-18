@@ -6,7 +6,7 @@ import { api } from '../utils/api';
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { lang, cart, deliveryMethod, setDeliveryMethod } = useStore();
+  const { lang, cart, deliveryMethod, setDeliveryMethod, clearCart } = useStore();
   const t = useTranslation(lang);
   const total = useCartTotal();
   
@@ -45,9 +45,10 @@ export default function Checkout() {
     };
 
     try {
-      const { orderRef, success } = await api.placeOrder(payload);
-      if (success) {
-        navigate('/otp', { state: { orderId: orderRef } });
+      const result = await api.placeOrder(payload);
+      if (result.success && result.payment_url) {
+        clearCart();
+        window.location.href = result.payment_url; // Go straight to Stripe
       } else {
         alert('Order failed. Please try again.');
       }

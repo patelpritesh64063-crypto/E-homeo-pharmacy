@@ -26,7 +26,7 @@ export const api = {
     return response.json();
   },
   
-  placeOrder: async (data: any): Promise<{ orderRef: string, success: boolean }> => {
+  placeOrder: async (data: any): Promise<{ orderRef: string, success: boolean, payment_url?: string }> => {
     const response = await fetch(`${BASE_URL}/api/orders/place`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

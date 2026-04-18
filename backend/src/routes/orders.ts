@@ -27,12 +27,10 @@ ordersRouter.post('/place', async (c) => {
 
       if (!product) return c.json({ error: `Product ${item.product_id} not found` }, 404);
       
-      // Check stock
       if (product.stock_qty < item.quantity) {
         return c.json({ error: `Insufficient stock for ${product.name}. Available: ${product.stock_qty}` }, 400);
       }
 
-      // Check daily limit for this user
       if (product.max_daily_qty) {
         const today = new Date().toISOString().split('T')[0];
         const prevQty = await c.env.DB.prepare(`
@@ -55,44 +53,44 @@ ordersRouter.post('/place', async (c) => {
 
     const orderRef = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
     
-    // B. Create Order record
+    // B. Calculate Total
+    let totalPaise = 0;
+    for (const item of items) {
+      totalPaise += item.quantity * item.price * 100;
+    }
+
+    // C. Create Stripe Session FIRST (so if it fails we don't create a dead order)
+    const session = await createStripeSession(c.env, orderRef, totalPaise, customer_info, `E-Pharm Order ${orderRef}`);
+
+    // D. Create Order record (verified immediately, no OTP needed)
     await c.env.DB.prepare(
-      'INSERT INTO orders (order_ref, customer_info, status, delivery_type, notes) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO orders (order_ref, customer_info, status, delivery_type, notes, payment_fields) VALUES (?, ?, ?, ?, ?, ?)'
     ).bind(
       orderRef,
       JSON.stringify(customer_info),
-      'pending',
+      'verified',
       delivery_type,
-      notes || null
+      notes || null,
+      JSON.stringify({ stripe_session_id: session.id, short_url: session.url, amount_paise: totalPaise })
     ).run();
     
-    // C. Insert Order Items
+    // E. Insert Order Items
     for (const item of items) {
       const itemId = crypto.randomUUID();
       await c.env.DB.prepare(
         'INSERT INTO order_items (id, order_ref, product_id, quantity, price_at_time) VALUES (?, ?, ?, ?, ?)'
       ).bind(itemId, orderRef, item.product_id, item.quantity, item.price).run();
     }
+
+    // F. Background tasks (AI fraud check, no OTP needed)
+    c.executionCtx.waitUntil(performFraudCheck(c.env, orderRef));
     
-    // D. Generate OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    await c.env.STORE_KV.put(`OTP:${orderRef}`, otp, { expirationTtl: 600 }); // 10 mins
-    
-    // E. Send Verification Email
-    await sendEmail(c.env, {
-      to: customer_info.email,
-      subject: `Verify Your E-Pharm Order ${orderRef}`,
-      html: templates.otp(otp, delivery_type)
-    });
-    
-    return c.json({ success: true, orderRef });
+    return c.json({ success: true, orderRef, payment_url: session.url });
   } catch (err: any) {
     console.error('[Order Place Error]', err);
     return c.json({ 
       success: false, 
-      error: err.message.includes('Email delivery failed') 
-        ? err.message 
-        : 'Failed to place order. Please try again later.' 
+      error: err.message || 'Failed to place order. Please try again later.'
     }, 500);
   }
 });
