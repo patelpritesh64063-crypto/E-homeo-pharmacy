@@ -44,10 +44,18 @@ export default function Checkout() {
       notes: formData.notes
     };
 
-    const { orderRef, success } = await api.placeOrder(payload);
-    setLoading(false);
-    if (success) {
-      navigate('/otp', { state: { orderId: orderRef } });
+    try {
+      const { orderRef, success } = await api.placeOrder(payload);
+      if (success) {
+        navigate('/otp', { state: { orderId: orderRef } });
+      } else {
+        alert('Order failed. Please try again.');
+      }
+    } catch (err: any) {
+      console.error('Checkout error:', err);
+      alert(err.message || 'Connection failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 

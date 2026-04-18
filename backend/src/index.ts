@@ -11,6 +11,19 @@ import { handleDailyStockCron } from './cron/dailyStock';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
+// ─── Global Error Handling ─────────────────────────────────────
+
+app.onError((err, c) => {
+  console.error(`[Global Error] ${err.message}`, err);
+  return c.json({ 
+    success: false, 
+    error: err.message || 'Internal Server Error',
+    type: err.name
+  }, 500);
+});
+
+app.notFound((c) => c.json({ error: 'Route not found' }, 404));
+
 // ─── Middleware ──────────────────────────────────────────────────
 
 app.use('*', cors());

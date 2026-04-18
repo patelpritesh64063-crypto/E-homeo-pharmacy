@@ -10,24 +10,33 @@ export const adminRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // Step 1: Credentials Check
 adminRouter.post('/login', async (c) => {
-  const { email, password } = await c.req.json();
-  
-  if (email !== c.env.ADMIN_EMAIL || password !== c.env.ADMIN_PASSWORD) {
-    return c.json({ error: 'Invalid credentials' }, 401);
+  try {
+    const { email, password } = await c.req.json();
+    
+    if (email !== c.env.ADMIN_EMAIL || password !== c.env.ADMIN_PASSWORD) {
+      return c.json({ error: 'Invalid credentials' }, 401);
+    }
+
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    await c.env.STORE_KV.put(`ADMIN_OTP:${email}`, otp, { expirationTtl: 600 });
+    
+    // Email OTP to admin
+    await sendEmail(c.env, {
+      to: c.env.ADMIN_EMAIL,
+      subject: 'Admin Login OTP',
+      html: templates.otp(otp, '', true)
+    });
+
+    return c.json({ success: true, message: 'OTP sent to your email' });
+  } catch (err: any) {
+    console.error('[Admin Login Error]', err);
+    return c.json({ 
+      error: err.message.includes('Email delivery failed') 
+        ? 'Failed to send OTP email. Please verify your RESEND_API_KEY.' 
+        : 'An error occurred during login.' 
+    }, 500);
   }
-
-  // Generate OTP
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  await c.env.STORE_KV.put(`ADMIN_OTP:${email}`, otp, { expirationTtl: 600 });
-  
-  // Email OTP to admin
-  await sendEmail(c.env, {
-    to: c.env.ADMIN_EMAIL,
-    subject: 'Admin Login OTP',
-    html: templates.otp(otp, '', true)
-  });
-
-  return c.json({ success: true, message: 'OTP sent to your email' });
 });
 
 // Step 2: OTP Verification -> Session
