@@ -19,6 +19,11 @@ interface AppState {
   
   deliveryMethod: 'delivery' | 'pickup';
   setDeliveryMethod: (method: 'delivery' | 'pickup') => void;
+
+  customer: { id: string; name: string; email: string; phone?: string } | null;
+  customerToken: string | null;
+  setCustomer: (user: any, token: string) => void;
+  clearCustomer: () => void;
 }
 
 export const useStore = create<AppState>()(
@@ -53,7 +58,12 @@ export const useStore = create<AppState>()(
       clearCart: () => set({ cart: [] }),
       
       deliveryMethod: 'delivery',
-      setDeliveryMethod: (deliveryMethod) => set({ deliveryMethod })
+      setDeliveryMethod: (deliveryMethod) => set({ deliveryMethod }),
+
+      customer: null,
+      customerToken: null,
+      setCustomer: (user, token) => set({ customer: user, customerToken: token }),
+      clearCustomer: () => set({ customer: null, customerToken: null }),
     }),
     {
       name: 'e-pharm-store'

@@ -1,29 +1,58 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore, useCartTotal } from '../store/useStore';
 import { useTranslation } from '../i18n/translations';
 import { api } from '../utils/api';
+import { ShieldCheck, User } from 'lucide-react';
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { lang, cart, deliveryMethod, setDeliveryMethod, clearCart } = useStore();
+  const { lang, cart, deliveryMethod, setDeliveryMethod, clearCart, customer, customerToken } = useStore();
   const t = useTranslation(lang);
   const total = useCartTotal();
   
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', notes: '' });
+  const [formData, setFormData] = useState({
+    name: customer?.name || '',
+    email: customer?.email || '',
+    phone: customer?.phone || '',
+    notes: ''
+  });
   const [loading, setLoading] = useState(false);
+
+  // Require login before accessing checkout
+  useEffect(() => {
+    if (!customerToken) {
+      navigate('/login', { state: { from: '/checkout' } });
+    }
+  }, [customerToken]);
+
+  // Pre-fill form from logged-in customer
+  useEffect(() => {
+    if (customer) {
+      setFormData(prev => ({
+        ...prev,
+        name: prev.name || customer.name || '',
+        email: prev.email || customer.email || '',
+        phone: prev.phone || customer.phone || '',
+      }));
+    }
+  }, [customer]);
 
   const deliveryCharge = deliveryMethod === 'delivery' ? 40 : 0;
   const finalTotal = total + deliveryCharge;
 
   if (cart.length === 0) {
     return (
-      <div className="container animate-fade-in" style={{ textAlign: 'center', paddingTop: '40px' }}>
-        <p>Your cart is empty.</p>
-        <button className="btn btn-primary mt-4" onClick={() => navigate('/catalog')}>Back to Catalog</button>
+      <div className="container animate-fade-in" style={{ textAlign: 'center', paddingTop: '60px' }}>
+        <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🛒</div>
+        <h2 style={{ marginBottom: '8px' }}>Your cart is empty</h2>
+        <p className="text-muted" style={{ marginBottom: '24px' }}>Add some products before checking out.</p>
+        <button className="btn btn-primary" onClick={() => navigate('/catalog')}>Browse Catalog</button>
       </div>
     );
   }
+
+  if (!customerToken) return null; // Will redirect
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +77,7 @@ export default function Checkout() {
       const result = await api.placeOrder(payload);
       if (result.success && result.payment_url) {
         clearCart();
-        window.location.href = result.payment_url; // Go straight to Stripe
+        window.location.href = result.payment_url;
       } else {
         alert('Order failed. Please try again.');
       }
@@ -61,69 +90,90 @@ export default function Checkout() {
   };
 
   return (
-    <div className="container animate-fade-in">
+    <div className="container animate-fade-in" style={{ maxWidth: '640px' }}>
       <h1 className="mb-6">{t('checkout')}</h1>
-      
-      <div className="glass-panel" style={{ padding: '24px', marginBottom: '24px' }}>
+
+      {/* Logged-in badge */}
+      {customer && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px',
+          background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)',
+          borderRadius: '12px', marginBottom: '20px', fontSize: '0.875rem'
+        }}>
+          <ShieldCheck size={18} color="var(--accent-green)" />
+          <span>Logged in as <strong style={{ color: 'var(--accent-green)' }}>{customer.name}</strong> · {customer.email}</span>
+        </div>
+      )}
+
+      {/* Order Summary */}
+      <div className="glass-panel" style={{ padding: '24px', marginBottom: '20px' }}>
         <h3 className="mb-6">Order Summary</h3>
         {cart.map(item => (
-          <div key={item.id} className="flex justify-between items-center" style={{ marginBottom: '12px' }}>
-            <div>
-              <span>{item.quantity}x {item.name}</span>
+          <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '1.2rem' }}>{item.emoji || '💊'}</span>
+              <span>{item.quantity}× {item.name}</span>
             </div>
-            <span style={{ fontWeight: 'bold' }}>₹{item.price * item.quantity}</span>
+            <span style={{ fontWeight: 700 }}>₹{item.price * item.quantity}</span>
           </div>
         ))}
-        
-        <div style={{ margin: '24px 0', borderTop: '1px solid var(--glass-border)' }}></div>
-        
+
+        <div style={{ margin: '20px 0', borderTop: '1px solid var(--glass-border)' }} />
+
+        {/* Delivery method */}
         <div className="flex gap-4 mb-6">
-          <label style={{ flex: 1, display: 'block' }}>
-            <input 
-              type="radio" 
-              name="delivery" 
-              checked={deliveryMethod === 'delivery'} 
-              onChange={() => setDeliveryMethod('delivery')} 
-              style={{ display: 'none' }}
-            />
-            <div className={`glass-card ${deliveryMethod === 'delivery' ? 'active-method' : ''}`} style={{ padding: '16px', textAlign: 'center', cursor: 'pointer', border: deliveryMethod === 'delivery' ? '2px solid var(--accent-purple)' : '2px solid transparent' }}>
-              <strong>{t('delivery')}</strong>
-              <div className="text-muted text-sm mt-2">{t('flatRate')}</div>
-            </div>
-          </label>
-          
-          <label style={{ flex: 1, display: 'block' }}>
-            <input 
-              type="radio" 
-              name="delivery" 
-              checked={deliveryMethod === 'pickup'} 
-              onChange={() => setDeliveryMethod('pickup')} 
-              style={{ display: 'none' }}
-            />
-            <div className={`glass-card ${deliveryMethod === 'pickup' ? 'active-method' : ''}`} style={{ padding: '16px', textAlign: 'center', cursor: 'pointer', border: deliveryMethod === 'pickup' ? '2px solid var(--accent-purple)' : '2px solid transparent' }}>
-              <strong>{t('pickup')}</strong>
-              <div className="text-muted text-sm mt-2">{t('free')}</div>
-            </div>
-          </label>
+          {[
+            { value: 'delivery', label: t('delivery'), sub: '₹40 flat rate' },
+            { value: 'pickup', label: t('pickup'), sub: 'Free · Pick up from store' },
+          ].map(m => (
+            <label key={m.value} style={{ flex: 1, cursor: 'pointer' }}>
+              <input type="radio" name="delivery" checked={deliveryMethod === m.value as any}
+                onChange={() => setDeliveryMethod(m.value as any)} style={{ display: 'none' }} />
+              <div style={{
+                padding: '16px', textAlign: 'center', borderRadius: '12px',
+                background: 'rgba(255,255,255,0.04)', cursor: 'pointer', transition: 'all 0.2s',
+                border: deliveryMethod === m.value ? '2px solid var(--accent-purple)' : '2px solid transparent'
+              }}>
+                <strong>{m.label}</strong>
+                <div className="text-muted" style={{ fontSize: '0.8rem', marginTop: '4px' }}>{m.sub}</div>
+              </div>
+            </label>
+          ))}
         </div>
 
-        <div className="flex justify-between items-center mt-4">
-          <span style={{ fontSize: '1.25rem' }}>{t('total')}</span>
-          <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--accent-green)' }}>₹{finalTotal}</span>
+        {deliveryCharge > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+            <span>Delivery charge</span><span>₹{deliveryCharge}</span>
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.25rem', fontWeight: 800 }}>
+          <span>Total</span>
+          <span style={{ color: 'var(--accent-green)' }}>₹{finalTotal}</span>
         </div>
       </div>
 
+      {/* Contact Details */}
       <form onSubmit={handleSubmit} className="glass-panel" style={{ padding: '24px' }}>
-        <div className="flex flex-col gap-4">
-          <input required className="input-glass" placeholder={t('name')} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-          <input required type="email" className="input-glass" placeholder={t('email')} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-          <input required type="tel" className="input-glass" placeholder={t('phone')} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-          <textarea className="input-glass" placeholder={t('notes')} value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} rows={3} />
+        <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <User size={20} /> Contact Details
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <input required className="input-glass" placeholder={t('name')}
+            value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+          <input required type="email" className="input-glass" placeholder={t('email')}
+            value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+          <input required type="tel" className="input-glass" placeholder="Mobile number (+91...)"
+            value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+          <textarea className="input-glass" placeholder="Order notes (optional)"
+            value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} rows={2} style={{ resize: 'vertical' }} />
         </div>
-        
-        <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', marginTop: '24px' }}>
-          {loading ? 'Processing...' : `${t('placeOrder')} - ₹${finalTotal}`}
+
+        <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', marginTop: '24px', padding: '16px', fontSize: '1rem' }}>
+          {loading ? '⏳ Redirecting to payment...' : `🔒 Pay ₹${finalTotal} via Stripe`}
         </button>
+        <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '10px' }}>
+          Secure payment powered by Stripe
+        </p>
       </form>
     </div>
   );
