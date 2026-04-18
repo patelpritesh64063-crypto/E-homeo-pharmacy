@@ -91,7 +91,7 @@ ordersRouter.post('/place', async (c) => {
     return c.json({ 
       success: false, 
       error: err.message.includes('Email delivery failed') 
-        ? 'Failed to send verification email. Please check ADMIN settings.' 
+        ? err.message 
         : 'Failed to place order. Please try again later.' 
     }, 500);
   }

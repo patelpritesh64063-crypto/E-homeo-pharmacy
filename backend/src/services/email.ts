@@ -14,7 +14,7 @@ export const sendEmail = async (env: Env, payload: EmailPayload) => {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'E-Pharm Store <noreply@e-pharm.com>',
+      from: 'E-Pharm Store <onboarding@resend.dev>',
       to: payload.to,
       subject: payload.subject,
       html: payload.html,
@@ -24,7 +24,7 @@ export const sendEmail = async (env: Env, payload: EmailPayload) => {
   if (!res.ok) {
     const err = await res.text();
     console.error('Failed to send email:', err);
-    throw new Error('Email delivery failed');
+    throw new Error(`Email delivery failed: ${err}`);
   }
 };
 
