@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { Env, Variables } from '../env';
 import { adminAuth } from '../middleware/auth';
 import { sendEmail, templates } from '../services/email';
-import { createPaymentLink } from '../services/razorpay';
+import { createStripeSession } from '../services/stripe';
 
 export const adminRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -111,16 +111,16 @@ adminRouter.post('/orders/:ref/accept', async (c) => {
     ).bind(item.quantity, item.product_id).run();
   }
 
-  // 3. Create Razorpay Link
+  // 3. Create Stripe Session
   const customer = JSON.parse(order.customer_info);
-  const payLink = await createPaymentLink(c.env, ref, totalPaise, customer, `Payment for E-Pharm Order ${ref}`);
+  const session = await createStripeSession(c.env, ref, totalPaise, customer, `Payment for E-Pharm Order ${ref}`);
 
   // 4. Update Order
   await c.env.DB.prepare(
     "UPDATE orders SET status = 'accepted', payment_fields = ? WHERE order_ref = ?"
   ).bind(JSON.stringify({ 
-    payment_link_id: payLink.id, 
-    short_url: payLink.short_url,
+    stripe_session_id: session.id, 
+    short_url: session.url, // Using same key for frontend compatibility
     amount_paise: totalPaise
   }), ref).run();
 
@@ -128,10 +128,10 @@ adminRouter.post('/orders/:ref/accept', async (c) => {
   await sendEmail(c.env, {
     to: customer.email,
     subject: `Your E-Pharm Order ${ref} is Accepted`,
-    html: templates.paymentLink(payLink.short_url, totalPaise, order.delivery_type, order.notes)
+    html: templates.paymentLink(session.url, totalPaise, order.delivery_type, order.notes)
   });
 
-  return c.json({ success: true, link: payLink.short_url });
+  return c.json({ success: true, link: session.url });
 });
 
 // Reject Order
