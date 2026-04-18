@@ -36,7 +36,7 @@ export const api = {
     return response.json();
   },
   
-  verifyOTP: async (otp: string, orderRef: string): Promise<{ success: boolean }> => {
+  verifyOTP: async (otp: string, orderRef: string): Promise<{ success: boolean, payment_url?: string }> => {
     const response = await fetch(`${BASE_URL}/api/orders/verify-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

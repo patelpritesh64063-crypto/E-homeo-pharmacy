@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { Env, Variables } from '../env';
 import { sendEmail, templates } from '../services/email';
 import { runFraudCheck, FraudCheckInput } from '../services/ai';
+import { createStripeSession } from '../services/stripe';
 
 export const ordersRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -121,19 +122,61 @@ ordersRouter.post('/verify-otp', async (c) => {
     return c.json({ error: 'Invalid OTP code' }, 400);
   }
   
-  // Success
-  await c.env.DB.prepare(
-    "UPDATE orders SET status = 'verified' WHERE order_ref = ?"
-  ).bind(orderRef).run();
-  
-  // Cleanup
-  await c.env.STORE_KV.delete(`OTP:${orderRef}`);
-  await c.env.STORE_KV.delete(attemptsKey);
-  
-  // Trigger AI Fraud Check (Background)
-  c.executionCtx.waitUntil(performFraudCheck(c.env, orderRef));
-  
-  return c.json({ success: true });
+  // Create Stripe Session immediately upon OTP success
+  try {
+    const order = await c.env.DB.prepare('SELECT * FROM orders WHERE order_ref = ?').bind(orderRef).first() as any;
+    const customer = JSON.parse(order.customer_info);
+    
+    // Calculate total from order items
+    const { results: orderItems } = await c.env.DB.prepare('SELECT * FROM order_items WHERE order_ref = ?').bind(orderRef).all() as any;
+    let totalPaise = 0;
+    for (const item of orderItems) {
+      totalPaise += item.quantity * item.price_at_time * 100;
+    }
+
+    const session = await createStripeSession(c.env, orderRef, totalPaise, customer, `Payment for E-Pharm Order ${orderRef}`);
+
+    // Success - update to verified and add payment link
+    await c.env.DB.prepare(
+      "UPDATE orders SET status = 'verified', payment_fields = ? WHERE order_ref = ?"
+    ).bind(JSON.stringify({ 
+      stripe_session_id: session.id, 
+      short_url: session.url,
+      amount_paise: totalPaise
+    }), orderRef).run();
+    
+    // Send email with payment link to customer
+    await sendEmail(c.env, {
+      to: customer.email,
+      subject: `Order Verified - Complete Payment for ${orderRef}`,
+      html: templates.paymentLink(session.url, totalPaise, order.delivery_type, order.notes)
+    });
+
+    // Cleanup
+    await c.env.STORE_KV.delete(`OTP:${orderRef}`);
+    await c.env.STORE_KV.delete(attemptsKey);
+    
+    // Trigger AI Fraud Check (Background)
+    c.executionCtx.waitUntil(performFraudCheck(c.env, orderRef));
+    
+    return c.json({ success: true, payment_url: session.url });
+
+  } catch (err) {
+    console.error('Failed to create stripe session on OTP verify:', err);
+    // Still mark as verified so admin can manually generate it if this fails
+    await c.env.DB.prepare(
+      "UPDATE orders SET status = 'verified' WHERE order_ref = ?"
+    ).bind(orderRef).run();
+
+    // Cleanup
+    await c.env.STORE_KV.delete(`OTP:${orderRef}`);
+    await c.env.STORE_KV.delete(attemptsKey);
+    
+    // Trigger AI Fraud Check (Background)
+    c.executionCtx.waitUntil(performFraudCheck(c.env, orderRef));
+    
+    return c.json({ success: true });
+  }
 });
 
 /**

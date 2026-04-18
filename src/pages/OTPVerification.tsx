@@ -50,10 +50,13 @@ export default function OTPVerification() {
       setLoading(true);
       const res = await api.verifyOTP(fullOtp, state.orderId);
       setLoading(false);
-      
       if (res.success) {
         clearCart();
-        navigate(`/track/${state.orderId}`);
+        if (res.payment_url) {
+          window.location.href = res.payment_url;
+        } else {
+          navigate(`/track/${state.orderId}`);
+        }
       } else {
         alert('Invalid OTP');
       }
