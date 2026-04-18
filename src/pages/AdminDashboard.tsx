@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, Truck, LogOut, Search, Edit2 } from 'lucide-react';
+import { CheckCircle, Truck, LogOut, Search, Edit2, Plus, X } from 'lucide-react';
 
 interface Order {
   order_ref: string;
@@ -18,6 +18,8 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [search, setSearch] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newItem, setNewItem] = useState({ name: '', sku: '', category: 'Dilution', price: '', cost_price: '', stock_qty: '', emoji: '' });
   const navigate = useNavigate();
 
   const token = localStorage.getItem('admin_token');
@@ -95,6 +97,40 @@ const AdminDashboard = () => {
         alert('Failed to update stock. Are you admin?');
       }
     } catch (e) { console.error(e); }
+  };
+
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+      const payload = {
+        ...newItem,
+        price: parseFloat(newItem.price),
+        cost_price: parseFloat(newItem.cost_price),
+        stock_qty: parseInt(newItem.stock_qty)
+      };
+
+      const res = await fetch(`${BASE_URL}/api/public/catalog`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (res.ok) {
+        alert('Product added successfully!');
+        setShowAddModal(false);
+        setNewItem({ name: '', sku: '', category: 'Dilution', price: '', cost_price: '', stock_qty: '', emoji: '' });
+        fetchProducts();
+      } else {
+        alert('Failed to add product');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Error adding product');
+    }
   };
 
   const handleAccept = async (ref: string) => {
@@ -270,7 +306,13 @@ const AdminDashboard = () => {
           loadingProducts ? (
             <p className="text-center">Loading products...</p>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Plus size={16} /> Add Product
+                </button>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
@@ -304,9 +346,41 @@ const AdminDashboard = () => {
                 </tbody>
               </table>
             </div>
+          </div>
           )
         )}
       </div>
+
+      {showAddModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
+        }}>
+          <div className="glass-panel" style={{ padding: '32px', width: '100%', maxWidth: '500px', position: 'relative' }}>
+            <button 
+              onClick={() => setShowAddModal(false)} 
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: 'var(--text-color)', cursor: 'pointer' }}
+            >
+              <X size={24} />
+            </button>
+            <h2 className="mb-6">Add New Product</h2>
+            <form onSubmit={handleAddProduct} className="flex flex-col gap-4">
+              <input required className="input-glass" placeholder="Product Name (e.g. Arnica 200CH)" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
+              <div className="flex gap-4">
+                <input required className="input-glass" placeholder="SKU (e.g. ARN-200)" value={newItem.sku} onChange={e => setNewItem({...newItem, sku: e.target.value})} style={{ flex: 1 }} />
+                <input className="input-glass" placeholder="Emoji (Optional)" value={newItem.emoji} onChange={e => setNewItem({...newItem, emoji: e.target.value})} style={{ width: '100px' }} />
+              </div>
+              <input required className="input-glass" placeholder="Category" value={newItem.category} onChange={e => setNewItem({...newItem, category: e.target.value})} />
+              <div className="flex gap-4">
+                <input required type="number" min="0" step="0.01" className="input-glass" placeholder="Selling Price (₹)" value={newItem.price} onChange={e => setNewItem({...newItem, price: e.target.value})} />
+                <input required type="number" min="0" step="0.01" className="input-glass" placeholder="Cost Price (₹)" value={newItem.cost_price} onChange={e => setNewItem({...newItem, cost_price: e.target.value})} />
+              </div>
+              <input required type="number" min="0" className="input-glass" placeholder="Initial Stock Quantity" value={newItem.stock_qty} onChange={e => setNewItem({...newItem, stock_qty: e.target.value})} />
+              <button type="submit" className="btn btn-primary mt-4">Add Product</button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
