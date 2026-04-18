@@ -6,6 +6,7 @@ import { useStore } from '../store/useStore';
 
 export default function CustomerLogin() {
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -21,11 +22,26 @@ export default function CustomerLogin() {
     setError('');
 
     try {
-      // Future integration: call customer auth API
-      await new Promise(r => setTimeout(r, 1000)); 
-      // Mock successful login:
-      localStorage.setItem('customer_email', email);
-      navigate('/catalog');
+      const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+      const payload = isLogin ? { email, password } : { name, email, password };
+      
+      const res = await fetch(`${BASE_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        localStorage.setItem('customer_token', data.token);
+        localStorage.setItem('customer_email', email);
+        if (data.user) localStorage.setItem('customer_name', data.user.name);
+        navigate('/catalog');
+      } else {
+        setError(data.error || 'Authentication failed');
+      }
     } catch (err) {
       setError('Failed to ' + (isLogin ? 'login' : 'register'));
     } finally {
@@ -55,6 +71,25 @@ export default function CustomerLogin() {
             <div className="error-badge">
               <AlertCircle size={18} />
               <span>{error}</span>
+            </div>
+          )}
+
+          {!isLogin && (
+            <div className="input-group" style={{ marginBottom: '16px' }}>
+              <label htmlFor="name" style={{ display: 'block', marginBottom: '8px' }}>Full Name</label>
+              <div className="input-wrapper" style={{ position: 'relative' }}>
+                <User size={18} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
+                <input
+                  id="name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="input-glass"
+                  style={{ paddingLeft: '40px', width: '100%' }}
+                  required={!isLogin}
+                />
+              </div>
             </div>
           )}
 

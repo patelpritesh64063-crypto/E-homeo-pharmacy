@@ -5,6 +5,7 @@ import { catalogRouter } from './routes/catalog';
 import { ordersRouter } from './routes/orders';
 import { adminRouter } from './routes/admin';
 import { webhooksRouter } from './routes/webhooks';
+import { authRouter } from './routes/auth';
 import { rateLimiter } from './middleware/rateLimiter';
 import { handleDailyStockCron } from './cron/dailyStock';
 
@@ -29,6 +30,7 @@ app.get('/health', (c) => c.json({ status: 'healthy', time: new Date().toISOStri
 app.route('/api/public/catalog', catalogRouter);
 app.route('/api/orders', ordersRouter);
 app.route('/api/admin', adminRouter);
+app.route('/api/auth', authRouter);
 app.route('/api/webhooks', webhooksRouter);
 
 // ─── Worker Export ───────────────────────────────────────────────

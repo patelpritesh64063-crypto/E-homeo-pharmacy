@@ -9,14 +9,14 @@ binding = "AI"
 
 # KV Bindings
 kv_namespaces = [
-  { binding = "STORE_KV", id = "e08d75a05eca4a1e8e29b17f7e8e38d2" }
+  { binding = "STORE_KV", id = "c56a5c910079438d8a2f794294c9ffd0" }
 ]
 
 # D1 Bindings
 [[d1_databases]]
 binding = "DB"
-database_name = "e-pharm-d1"
-database_id = "d621546c-de06-4bca-9eb8-3b26ebdec9f3"
+database_name = "epharm-db-v2"
+database_id = "d6337c83-84d3-4f8f-a065-16377b5a00b8"
 
 # Cron Triggers — Daily at 17:30 UTC (11:00 PM IST)
 [triggers]

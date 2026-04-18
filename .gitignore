@@ -33,3 +33,6 @@ backend/package-lock.json
 # Database (local)
 .wrangler/state/
 backend/.wrangler/state/
+
+.vercel
+.env*.local

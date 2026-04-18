@@ -31,7 +31,7 @@ export const createPaymentLink = async (
     },
     reminder_enable: true,
     // Callback is where user is redirected after payment
-    callback_url: "https://e-pharm-homeo.vercel.app/order-status/" + orderRef,
+    callback_url: `${env.FRONTEND_URL.replace(/\/$/, '')}/track/${orderRef}`,
     callback_method: "get"
   };
 

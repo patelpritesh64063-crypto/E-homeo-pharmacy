@@ -9,6 +9,7 @@ export type Env = {
   ADMIN_EMAIL: string;
   ADMIN_PASSWORD: string;
   ADMIN_API_KEY: string;
+  FRONTEND_URL: string;
 };
 
 export type Variables = {
