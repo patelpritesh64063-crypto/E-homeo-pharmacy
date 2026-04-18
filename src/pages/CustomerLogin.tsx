@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { User, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
-import { useTranslation } from '../i18n/translations';
-import { useStore } from '../store/useStore';
 
 export default function CustomerLogin() {
   const [email, setEmail] = useState('');
@@ -13,8 +11,6 @@ export default function CustomerLogin() {
   const [error, setError] = useState('');
   
   const navigate = useNavigate();
-  const { lang } = useStore();
-  const t = useTranslation(lang);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

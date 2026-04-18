@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, Truck, LogOut, Search, Package, Plus, Edit2 } from 'lucide-react';
+import { CheckCircle, Truck, LogOut, Search, Edit2 } from 'lucide-react';
 
 interface Order {
   order_ref: string;
