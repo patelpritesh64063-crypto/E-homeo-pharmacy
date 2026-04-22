@@ -120,7 +120,7 @@ ordersRouter.post('/verify-otp', async (c) => {
     return c.json({ error: 'Invalid OTP code' }, 400);
   }
   
-  // Create Stripe Session immediately upon OTP success
+  // Create Razorpay Payment Link immediately upon OTP success
   try {
     const order = await c.env.DB.prepare('SELECT * FROM orders WHERE order_ref = ?').bind(orderRef).first() as any;
     const customer = JSON.parse(order.customer_info);

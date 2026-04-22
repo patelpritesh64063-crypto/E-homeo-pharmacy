@@ -169,10 +169,10 @@ export default function Checkout() {
         </div>
 
         <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', marginTop: '24px', padding: '16px', fontSize: '1rem' }}>
-          {loading ? '⏳ Redirecting to payment...' : `🔒 Pay ₹${finalTotal} via Stripe`}
+          {loading ? '⏳ Redirecting to payment...' : `🔒 Pay ₹${finalTotal} via Rozpay`}
         </button>
         <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '10px' }}>
-          Secure payment powered by Stripe
+          Secure payment powered by Rozpay
         </p>
       </form>
     </div>
