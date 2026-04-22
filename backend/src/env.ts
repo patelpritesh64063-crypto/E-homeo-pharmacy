@@ -2,8 +2,9 @@ export type Env = {
   DB: D1Database;
   STORE_KV: KVNamespace;
   AI: Ai;
-  STRIPE_SECRET_KEY: string;
-  STRIPE_WEBHOOK_SECRET: string;
+  RAZORPAY_KEY: string;
+  RAZORPAY_SECRET: string;
+  RAZORPAY_WEBHOOK_SECRET: string;
   RESEND_API_KEY: string;
   ANTHROPIC_API_KEY: string;
   GOOGLE_CLIENT_ID: string;

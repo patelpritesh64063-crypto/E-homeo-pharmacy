@@ -8,8 +8,10 @@ DROP TABLE IF EXISTS customers;
 CREATE TABLE customers (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
+  email TEXT UNIQUE,
+  phone TEXT UNIQUE,
+  password_hash TEXT,
+  avatar_url TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -1,35 +1,38 @@
 import { Hono } from 'hono';
 import { Env } from '../env';
-import { verifyStripeSignature } from '../services/stripe';
+import { verifyRazorpaySignature } from '../services/razorpay';
 import { sendEmail, templates } from '../services/email';
 
 export const webhookRouter = new Hono<{ Bindings: Env }>();
 
-webhookRouter.post('/stripe', async (c) => {
-  const signature = c.req.header('stripe-signature');
-  const bodyContent = await c.req.text();
+/**
+ * Razorpay Webhook Handler
+ */
+webhookRouter.post('/razorpay', async (c) => {
+  const signature = c.req.header('x-razorpay-signature');
+  const bodyText = await c.req.text();
   
   if (!signature) {
-    return c.json({ error: 'Missing signature' }, 400);
+    console.error('[Webhook] Missing Razorpay signature');
+    return c.json({ error: 'Missing signature' }, 401);
   }
 
-  const isValid = await verifyStripeSignature(bodyContent, signature, c.env.STRIPE_WEBHOOK_SECRET);
+  // Verify signature
+  const isValid = await verifyRazorpaySignature(bodyText, signature, c.env.RAZORPAY_SECRET);
   if (!isValid) {
-    console.error('[Webhook] Invalid Stripe signature');
+    console.error('[Webhook] Invalid Razorpay signature');
     return c.json({ error: 'Invalid signature' }, 401);
   }
 
-  const event = JSON.parse(bodyContent);
-  console.log(`[Webhook] Received Stripe event: ${event.type}`);
-
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    const orderRef = session.client_reference_id;
-
-    if (!orderRef) {
-      console.error('[Webhook] Missing client_reference_id');
-      return c.json({ error: 'Missing client_reference_id' }, 400);
-    }
+  const payload = JSON.parse(bodyText);
+  
+  if (payload.event === 'payment_link.paid') {
+    const linkEntity = payload.payload.payment_link.entity;
+    const paymentEntity = payload.payload.payment.entity;
+    
+    const orderRef = linkEntity.reference_id;
+    const paymentId = paymentEntity.id;
+    const amountPaid = paymentEntity.amount / 100;
 
     // 1. Get Order
     const order = await c.env.DB.prepare('SELECT * FROM orders WHERE order_ref = ?').bind(orderRef).first() as any;
@@ -38,7 +41,15 @@ webhookRouter.post('/stripe', async (c) => {
       return c.json({ error: 'Order not found' }, 404);
     }
 
-    // 2. Get Items for Email
+    // 2. Mark as Paid
+    await c.env.DB.prepare(`
+      UPDATE orders 
+      SET status = 'paid', 
+          payment_fields = json_set(payment_fields, '$.razorpay_payment_id', ?) 
+      WHERE order_ref = ?
+    `).bind(paymentId, orderRef).run();
+
+    // 3. Get Items for Email
     const { results: items } = await c.env.DB.prepare(`
         SELECT oi.*, p.name 
         FROM order_items oi 
@@ -47,18 +58,12 @@ webhookRouter.post('/stripe', async (c) => {
     `).bind(orderRef).all() as any;
 
     const customer = JSON.parse(order.customer_info);
-    const paymentData = JSON.parse(order.payment_fields || '{}');
-
-    // 3. Mark as Paid
-    await c.env.DB.prepare(
-      "UPDATE orders SET status = 'paid' WHERE order_ref = ?"
-    ).bind(orderRef).run();
 
     // 4. Send Confirmation Email
     await sendEmail(c.env, {
       to: customer.email,
       subject: `Payment Confirmed for Order ${orderRef}`,
-      html: templates.confirmation(orderRef, items, paymentData.amount_paise / 100, order.delivery_type)
+      html: templates.confirmation(orderRef, items, amountPaid, order.delivery_type)
     });
 
     console.log(`[Webhook] Order ${orderRef} marked as paid`);

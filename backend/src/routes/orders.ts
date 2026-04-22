@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { Env, Variables } from '../env';
 import { sendEmail, templates } from '../services/email';
 import { runFraudCheck, FraudCheckInput } from '../services/ai';
-import { createStripeSession } from '../services/stripe';
+import { createPaymentLink } from '../services/razorpay';
 
 export const ordersRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -59,8 +59,8 @@ ordersRouter.post('/place', async (c) => {
       totalPaise += item.quantity * item.price * 100;
     }
 
-    // C. Create Stripe Session FIRST (so if it fails we don't create a dead order)
-    const session = await createStripeSession(c.env, orderRef, totalPaise, customer_info, `E-Pharm Order ${orderRef}`);
+    // C. Create Razorpay Payment Link FIRST
+    const paymentLink = await createPaymentLink(c.env, orderRef, totalPaise, customer_info, `E-Pharm Order ${orderRef}`);
 
     // D. Create Order record (verified immediately, no OTP needed)
     await c.env.DB.prepare(
@@ -71,7 +71,7 @@ ordersRouter.post('/place', async (c) => {
       'verified',
       delivery_type,
       notes || null,
-      JSON.stringify({ stripe_session_id: session.id, short_url: session.url, amount_paise: totalPaise })
+      JSON.stringify({ rozpay_link_id: paymentLink.id, short_url: paymentLink.short_url, amount_paise: totalPaise })
     ).run();
     
     // E. Insert Order Items
@@ -85,7 +85,7 @@ ordersRouter.post('/place', async (c) => {
     // F. Background tasks (AI fraud check, no OTP needed)
     c.executionCtx.waitUntil(performFraudCheck(c.env, orderRef));
     
-    return c.json({ success: true, orderRef, payment_url: session.url });
+    return c.json({ success: true, orderRef, payment_url: paymentLink.short_url });
   } catch (err: any) {
     console.error('[Order Place Error]', err);
     return c.json({ 
@@ -132,14 +132,14 @@ ordersRouter.post('/verify-otp', async (c) => {
       totalPaise += item.quantity * item.price_at_time * 100;
     }
 
-    const session = await createStripeSession(c.env, orderRef, totalPaise, customer, `Payment for E-Pharm Order ${orderRef}`);
+    const paymentLink = await createPaymentLink(c.env, orderRef, totalPaise, customer, `Payment for E-Pharm Order ${orderRef}`);
 
     // Success - update to verified and add payment link
     await c.env.DB.prepare(
       "UPDATE orders SET status = 'verified', payment_fields = ? WHERE order_ref = ?"
     ).bind(JSON.stringify({ 
-      stripe_session_id: session.id, 
-      short_url: session.url,
+      rozpay_link_id: paymentLink.id, 
+      short_url: paymentLink.short_url,
       amount_paise: totalPaise
     }), orderRef).run();
     
@@ -147,7 +147,7 @@ ordersRouter.post('/verify-otp', async (c) => {
     await sendEmail(c.env, {
       to: customer.email,
       subject: `Order Verified - Complete Payment for ${orderRef}`,
-      html: templates.paymentLink(session.url, totalPaise, order.delivery_type, order.notes)
+      html: templates.paymentLink(paymentLink.short_url, totalPaise, order.delivery_type, order.notes)
     });
 
     // Cleanup
@@ -157,10 +157,10 @@ ordersRouter.post('/verify-otp', async (c) => {
     // Trigger AI Fraud Check (Background)
     c.executionCtx.waitUntil(performFraudCheck(c.env, orderRef));
     
-    return c.json({ success: true, payment_url: session.url });
+    return c.json({ success: true, payment_url: paymentLink.short_url });
 
   } catch (err) {
-    console.error('Failed to create stripe session on OTP verify:', err);
+    console.error('Failed to create razorpay session on OTP verify:', err);
     // Still mark as verified so admin can manually generate it if this fails
     await c.env.DB.prepare(
       "UPDATE orders SET status = 'verified' WHERE order_ref = ?"
